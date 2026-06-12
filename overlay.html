@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Phasmo Overlay</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👻</text></svg>">
+  <script src="js/ghosts.js"></script>
+  <script src="js/strings.js"></script>
+  <link rel="stylesheet" href="css/overlay.css">
+</head>
+<body>
+
+<div class="panel">
+  <div class="panel-header">
+    <div class="header-top">
+      <div class="panel-title">Ghost Hunt</div>
+      <div class="timer" id="timer">00:00:00</div>
+    </div>
+    <div class="progress-row">
+      <div class="progress-nums"><strong id="doneCount">0</strong> / <span id="totalCount">29</span></div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+      <div class="remain"><span id="remainLabel">残り</span> <span id="remainCount">29</span></div>
+    </div>
+  </div>
+
+  <div class="ghost-list" id="ghostList"></div>
+</div>
+
+<script>
+  const channel = new BroadcastChannel('phasmo');
+
+  let lang = localStorage.getItem('phasmo_lang') || 'ja';
+  let identified = {};
+  GHOSTS.forEach(g => identified[ghostId(g)] = 0);
+  let startTime = Date.now();
+
+  const DEFAULT_SETTINGS = { panelOpacity: 82 };
+  let overlaySettings = { ...DEFAULT_SETTINGS };
+
+  function loadSettings() {
+    const saved = JSON.parse(localStorage.getItem('phasmo_overlay_settings') || 'null');
+    if (saved) overlaySettings = { ...DEFAULT_SETTINGS, ...saved };
+    applySettings();
+  }
+
+  function applySettings() {
+    document.documentElement.style.setProperty(
+      '--panel-bg',
+      `rgba(8, 10, 20, ${overlaySettings.panelOpacity / 100})`
+    );
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.getElementById('remainLabel').textContent = STRINGS[lang].remain;
+    renderList();
+  }
+
+  function loadState() {
+    const saved = JSON.parse(localStorage.getItem('phasmo_state') || 'null');
+    if (saved) {
+      identified = saved.identified;
+      Object.keys(identified).forEach(k => {
+        if (typeof identified[k] === 'boolean') identified[k] = identified[k] ? 1 : 0;
+      });
+      startTime = saved.startTime;
+    }
+  }
+
+  channel.onmessage = e => {
+    if (e.data.type === 'lang') {
+      lang = e.data.lang;
+      applyLang();
+      return;
+    }
+    if (e.data.type === 'settings') {
+      overlaySettings = e.data.settings;
+      localStorage.setItem('phasmo_overlay_settings', JSON.stringify(overlaySettings));
+      applySettings();
+      return;
+    }
+    identified = e.data.identified;
+    if (e.data.startTime) startTime = e.data.startTime;
+    updateAll();
+  };
+
+  function renderList() {
+    document.getElementById('totalCount').textContent = GHOSTS.length;
+    document.getElementById('remainCount').textContent = GHOSTS.length;
+    const list = document.getElementById('ghostList');
+    list.innerHTML = GHOSTS.map((g, i) => `
+      <div class="ghost-row${identified[ghostId(g)] > 0 ? ' done' : ''}" id="row-${ghostId(g)}">
+        <div class="ghost-num">${i + 1}</div>
+        <div class="ghost-status">
+          <svg width="6" height="6" viewBox="0 0 10 10" fill="none" stroke="#5fdf5f" stroke-width="2.5" stroke-linecap="round">
+            <polyline points="1,5 3.5,8.5 9,1.5"/>
+          </svg>
+        </div>
+        <div class="ghost-info">
+          ${lang === 'ja'
+            ? `<div class="ghost-name-ja">${g.nameJa}</div><div class="ghost-name-en">${g.name}</div>`
+            : `<div class="ghost-name-ja">${g.name}</div>`
+          }
+        </div>
+        <div class="ghost-count-wrap">
+          <span class="ghost-count" id="count-${ghostId(g)}">${identified[ghostId(g)] > 0 ? '×' + identified[ghostId(g)] : ''}</span>
+        </div>
+      </div>
+    `).join('');
+    updateStats();
+  }
+
+  function updateAll() {
+    GHOSTS.forEach(g => {
+      const row = document.getElementById(`row-${ghostId(g)}`);
+      if (!row) return;
+      row.className = `ghost-row${identified[ghostId(g)] > 0 ? ' done' : ''}`;
+      const countEl = document.getElementById(`count-${ghostId(g)}`);
+      if (countEl) countEl.textContent = identified[ghostId(g)] > 0 ? '×' + identified[ghostId(g)] : '';
+    });
+    updateStats();
+  }
+
+  function updateStats() {
+    const done = Object.values(identified).filter(v => v > 0).length;
+    const total = GHOSTS.length;
+    document.getElementById('doneCount').textContent = done;
+    document.getElementById('remainCount').textContent = total - done;
+    document.getElementById('progressBar').style.width = `${(done / total) * 100}%`;
+  }
+
+  function updateTimer() {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${h}:${m}:${s}`;
+  }
+
+  setInterval(updateTimer, 1000);
+  loadState();
+  loadSettings();
+  applyLang();
+</script>
+</body>
+</html>

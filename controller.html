@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phasmo Controller</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👻</text></svg>">
+  <script src="js/ghosts.js"></script>
+  <script src="js/strings.js"></script>
+  <link rel="stylesheet" href="css/controller.css">
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1 id="pageTitle">👻 Phasmophobiaゴーストカウンター</h1>
+    <div class="subtitle" id="subtitle">コントローラー — ゴーストカードをクリックして特定済みにする</div>
+  </div>
+  <div class="header-right">
+    <div class="lang-toggle">
+      <button id="btn-ja" onclick="setLang('ja')">JA</button>
+      <button id="btn-en" onclick="setLang('en')">EN</button>
+    </div>
+    <div>
+      <div class="timer" id="timer">00:00:00</div>
+      <div class="timer-label" id="timerLabel">経過時間</div>
+    </div>
+    <div class="progress-display">
+      <div class="progress-count"><span id="doneCount">0</span><span style="font-size:0.8rem;color:var(--text-muted)"> / <span id="totalCount">29</span></span></div>
+      <div class="progress-label" id="progressLabel">特定済み</div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="legend">
+  <span class="legend-label" id="evidenceLabel">証拠:</span>
+  <span class="badge EMF">EMF Lv5</span>
+  <span class="badge SB">Spirit Box</span>
+  <span class="badge UV" id="uvBadge">UV指紋</span>
+  <span class="badge GO">Ghost Orb</span>
+  <span class="badge GW">Ghost Writing</span>
+  <span class="badge FT">Freezing Temps</span>
+  <span class="badge DOTS">D.O.T.S</span>
+</div>
+
+<div class="main">
+  <div class="ghost-grid" id="ghostGrid"></div>
+</div>
+
+<div class="settings-panel" id="settingsPanel" hidden>
+  <div class="settings-inner">
+    <div class="settings-row">
+      <span class="setting-label" id="labelOpacity">背景の透過度</span>
+      <input type="range" id="settingOpacity" min="0" max="100" step="1" oninput="onSettingChange()">
+      <span class="setting-val" id="valOpacity">82%</span>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <button class="btn-reset" id="resetBtn" onclick="resetAll()">リセット</button>
+  <a href="overlay.html" target="_blank" class="overlay-link" id="overlayLink">オーバーレイを開く →</a>
+  <button class="btn-settings-toggle" id="settingsToggleBtn" onclick="toggleSettings()">⚙ <span id="settingsToggleLabel">オーバーレイ設定</span></button>
+</footer>
+
+<script>
+  const BADGE_LABELS = { EMF: 'EMF', SB: 'SB', UV: 'UV', GO: 'GO', GW: 'GW', FT: 'FT', DOTS: 'DOTS' };
+  const channel = new BroadcastChannel('phasmo');
+
+  let lang = localStorage.getItem('phasmo_lang') || 'ja';
+  let identified = {};
+  GHOSTS.forEach(g => identified[ghostId(g)] = 0);
+  let startTime = Date.now();
+
+  function applyLang() {
+    const s = STRINGS[lang];
+    document.documentElement.lang = lang;
+    document.getElementById('pageTitle').textContent = '👻 ' + s.pageTitle;
+    document.getElementById('subtitle').textContent = s.subtitle;
+    document.getElementById('timerLabel').textContent = s.timerLabel;
+    document.getElementById('progressLabel').textContent = s.progressLabel;
+    document.getElementById('evidenceLabel').textContent = s.evidenceLabel;
+    document.getElementById('uvBadge').textContent = s.uvBadge;
+    document.getElementById('resetBtn').textContent = s.resetBtn;
+    document.getElementById('overlayLink').textContent = s.overlayLink;
+    document.getElementById('btn-ja').classList.toggle('active', lang === 'ja');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+
+    document.getElementById('settingsToggleLabel').textContent = s.settingsToggle;
+    document.getElementById('labelOpacity').textContent = s.settingOpacity;
+
+    renderGrid();
+  }
+
+  function setLang(newLang) {
+    lang = newLang;
+    localStorage.setItem('phasmo_lang', lang);
+    channel.postMessage({ type: 'lang', lang });
+    applyLang();
+  }
+
+  function loadState() {
+    const saved = JSON.parse(localStorage.getItem('phasmo_state') || 'null');
+    if (saved) {
+      identified = saved.identified;
+      Object.keys(identified).forEach(k => {
+        if (typeof identified[k] === 'boolean') identified[k] = identified[k] ? 1 : 0;
+      });
+      startTime = saved.startTime;
+    }
+  }
+
+  function saveAndBroadcast() {
+    localStorage.setItem('phasmo_state', JSON.stringify({ identified, startTime }));
+    channel.postMessage({ type: 'update', identified, startTime });
+  }
+
+  function checkIconHTML(count) {
+    return count > 0
+      ? `<span class="count-num">${count}</span>`
+      : '<svg viewBox="0 0 12 12" fill="none" stroke="#88ff88" stroke-width="2" stroke-linecap="round"><polyline points="1,6 4,10 11,2"/></svg>';
+  }
+
+  function renderGrid() {
+    document.getElementById('totalCount').textContent = GHOSTS.length;
+    const grid = document.getElementById('ghostGrid');
+    grid.innerHTML = GHOSTS.map(g => `
+      <div class="ghost-card${identified[ghostId(g)] > 0 ? ' done' : ''}" id="card-${ghostId(g)}"
+           data-ghost="${ghostId(g)}">
+        <div class="card-top">
+          <div>
+            ${lang === 'ja'
+              ? `<div class="ghost-name-ja">${g.nameJa}</div><div class="ghost-name-en">${g.name}</div>`
+              : `<div class="ghost-name-ja">${g.name}</div>`
+            }
+          </div>
+          <div class="check-icon">${checkIconHTML(identified[ghostId(g)])}</div>
+        </div>
+        <div class="evidence-list">
+          ${g.evidence.map(e => `<span class="badge ${e}">${BADGE_LABELS[e]}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+    updateStats();
+  }
+
+  function updateAll() {
+    GHOSTS.forEach(g => {
+      const card = document.getElementById(`card-${ghostId(g)}`);
+      if (!card) return;
+      card.className = `ghost-card${identified[ghostId(g)] > 0 ? ' done' : ''}`;
+      card.querySelector('.check-icon').innerHTML = checkIconHTML(identified[ghostId(g)]);
+    });
+    updateStats();
+  }
+
+  function updateStats() {
+    const done = Object.values(identified).filter(v => v > 0).length;
+    document.getElementById('doneCount').textContent = done;
+    document.getElementById('progressBar').style.width = `${(done / GHOSTS.length) * 100}%`;
+  }
+
+  function increment(id) {
+    identified[id]++;
+    saveAndBroadcast();
+    updateAll();
+  }
+
+  function decrement(id) {
+    if (identified[id] > 0) identified[id]--;
+    saveAndBroadcast();
+    updateAll();
+  }
+
+  document.getElementById('ghostGrid').addEventListener('click', e => {
+    const card = e.target.closest('[data-ghost]');
+    if (card) increment(card.dataset.ghost);
+  });
+
+  document.getElementById('ghostGrid').addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const card = e.target.closest('[data-ghost]');
+    if (card) decrement(card.dataset.ghost);
+  });
+
+  function resetAll() {
+    if (!confirm(STRINGS[lang].confirmReset)) return;
+    GHOSTS.forEach(g => identified[ghostId(g)] = 0);
+    startTime = Date.now();
+    saveAndBroadcast();
+    renderGrid();
+  }
+
+  function updateTimer() {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    document.getElementById('timer').textContent = `${h}:${m}:${s}`;
+  }
+
+  const DEFAULT_SETTINGS = { panelOpacity: 82 };
+  let overlaySettings = { ...DEFAULT_SETTINGS };
+
+  function loadSettings() {
+    const saved = JSON.parse(localStorage.getItem('phasmo_overlay_settings') || 'null');
+    if (saved) overlaySettings = { ...DEFAULT_SETTINGS, ...saved };
+    document.getElementById('settingOpacity').value = overlaySettings.panelOpacity;
+    document.getElementById('valOpacity').textContent = overlaySettings.panelOpacity + '%';
+  }
+
+  function onSettingChange() {
+    overlaySettings.panelOpacity = Number(document.getElementById('settingOpacity').value);
+    document.getElementById('valOpacity').textContent = overlaySettings.panelOpacity + '%';
+    localStorage.setItem('phasmo_overlay_settings', JSON.stringify(overlaySettings));
+    channel.postMessage({ type: 'settings', settings: overlaySettings });
+  }
+
+  function toggleSettings() {
+    const panel = document.getElementById('settingsPanel');
+    const btn = document.getElementById('settingsToggleBtn');
+    panel.hidden = !panel.hidden;
+    btn.classList.toggle('active', !panel.hidden);
+  }
+
+  setInterval(updateTimer, 1000);
+  loadState();
+  loadSettings();
+  applyLang();
+</script>
+  <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="mumeiapps" data-description="Support me on Buy me a coffee!" data-message="アプリを使用していただきありがとうございます！このアプリを気に入っていただけたら、支援していただけると励みになります！Thank you for using our app!
+If you like this app, your support would be greatly appreciated!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+</body>
+</html>

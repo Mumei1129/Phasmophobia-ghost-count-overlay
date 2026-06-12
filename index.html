@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phasmophobiaゴーストカウンター</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👻</text></svg>">
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body>
+
+  <div class="lang-toggle">
+    <button id="btn-ja" onclick="setLang('ja')">JA</button>
+    <button id="btn-en" onclick="setLang('en')">EN</button>
+  </div>
+
+  <div class="hero">
+    <div class="ghost-icon">👻</div>
+    <h1 id="heroTitle">Phasmophobiaゴーストカウンター</h1>
+    <p id="heroSub">配信オーバーレイ & コントローラー</p>
+  </div>
+
+  <div class="cards">
+    <a href="/controller.html" class="card">
+      <div class="card-icon">🎮</div>
+      <div class="card-title" id="ctrlTitle">コントローラー</div>
+      <div class="card-desc" id="ctrlDesc">
+        ゴーストカードをクリックして特定済みにします。<br>
+        進捗・タイマーをここで管理してください。
+      </div>
+      <span class="card-tag tag-controller" id="ctrlTag">配信者用</span>
+    </a>
+
+    <a href="/overlay.html" target="_blank" class="card">
+      <div class="card-icon">📺</div>
+      <div class="card-title" id="ovrlTitle">オーバーレイ</div>
+      <div class="card-desc" id="ovrlDesc">
+        OBS のブラウザソースに追加する透過オーバーレイです。<br>
+        リスト・進捗バー・タイマーをゲーム画面に表示します。
+      </div>
+      <span class="card-tag tag-overlay" id="ovrlTag">OBS 用</span>
+    </a>
+  </div>
+
+  <div class="setup">
+    <div class="setup-title" id="setupTitle">セットアップ</div>
+    <div class="setup-grid">
+
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title" id="s1Title">OBS にブラウザソースを追加</div>
+          <div class="step-body" id="s1Body">
+            OBS のソース追加 →「ブラウザ」を選択。<br>
+            コントローラーとオーバーレイの両方を追加します。<br>
+            オーバーレイ: 幅 <code>230</code>・高さ <code>900</code> 推奨。<br>
+            「ページ権限」→「透過を有効化」にチェック。
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title" id="s2Title">コントローラーを対話モードで開く</div>
+          <div class="step-body" id="s2Body">
+            OBS のソース一覧でコントローラーを右クリック →「対話」を選択。<br>
+            ここでゴーストの操作を行います。
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title" id="s3Title">ゴーストを操作する</div>
+          <div class="step-body" id="s3Body">
+            <b>左クリック</b> — 特定回数を +1<br>
+            <b>右クリック</b> — 特定回数を −1<br>
+            カード右上の数字が特定した回数です。
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title" id="s4Title">リセット</div>
+          <div class="step-body" id="s4Body">
+            コントローラー下部の「リセット」ボタンで全カウントとタイマーを初期化します。<br>
+            次の耐久配信の開始時に使用してください。
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="disclaimer">
+    <p id="disclaimerText"></p>
+  </footer>
+
+  <script>
+    const STRINGS = {
+      ja: {
+        title:     'Phasmophobiaゴーストカウンター',
+        hero:      '配信オーバーレイ & コントローラー',
+        ctrlTitle: 'コントローラー',
+        ctrlDesc:  'ゴーストカードをクリックして特定済みにします。<br>進捗・タイマーをここで管理してください。',
+        ctrlTag:      '配信者用',
+        overlayTitle: 'オーバーレイ',
+        overlayDesc:  'OBS のブラウザソースに追加する透過オーバーレイです。<br>リスト・進捗バー・タイマーをゲーム画面に表示します。',
+        overlayTag:   'OBS 用',
+        setup:     'セットアップ',
+        s1Title:   'OBS にブラウザソースを追加',
+        s1Body:    'OBS のソース追加 →「ブラウザ」を選択。<br>コントローラーとオーバーレイの両方を追加します。<br>オーバーレイ: 幅 <code>230</code>・高さ <code>900</code> 推奨。<br>「ページ権限」→「透過を有効化」にチェック。',
+        s2Title:   'コントローラーを対話モードで開く',
+        s2Body:    'OBS のソース一覧でコントローラーを右クリック →「対話」を選択。<br>ここでゴーストの操作を行います。',
+        s3Title:   'ゴーストを操作する',
+        s3Body:    '<b>左クリック</b> — 特定回数を +1<br><b>右クリック</b> — 特定回数を −1<br>カード右上の数字が特定した回数です。',
+        s4Title:   'リセット',
+        s4Body:    'コントローラー下部の「リセット」ボタンで全カウントとタイマーを初期化します。<br>次の耐久配信の開始時に使用してください。',
+        disclaimer: 'このツールは非公式のファンメイドツールです。Kinetic Games とは一切関係ありません。ゲームのアップデートにより情報が古くなる場合があります。',
+      },
+      en: {
+        title:     'Phasmophobia Ghost Counter',
+        hero:      'Streaming Overlay & Controller',
+        ctrlTitle: 'Controller',
+        ctrlDesc:  'Click ghost cards to mark them as identified.<br>Manage progress and timer here.',
+        ctrlTag:      'For Streamer',
+        overlayTitle: 'Overlay',
+        overlayDesc:  'Transparent overlay to add as a browser source in OBS.<br>Displays ghost list, progress bar, and timer on your game screen.',
+        overlayTag:   'For OBS',
+        setup:     'Setup',
+        s1Title:   'Add Browser Sources in OBS',
+        s1Body:    'Add Source → Browser in OBS.<br>Add both the controller and overlay as sources.<br>Overlay: Recommended width <code>230</code>, height <code>900</code>.<br>Check "Allow transparency".',
+        s2Title:   'Open Controller in Interactive Mode',
+        s2Body:    'Right-click the controller source in OBS → select "Interact".<br>Use this to operate the ghost counter during your stream.',
+        s3Title:   'Manage Ghosts',
+        s3Body:    '<b>Left click</b> — identify +1<br><b>Right click</b> — identify −1<br>The number in the top-right corner is the count.',
+        s4Title:   'Reset',
+        s4Body:    'Use the Reset button at the bottom of the controller to reset all counts and timer.<br>Use at the start of each marathon stream.',
+        disclaimer: 'This is an unofficial fan-made tool. Not affiliated with or endorsed by Kinetic Games. Game data may become outdated after updates.',
+      },
+    };
+
+    let lang = localStorage.getItem('phasmo_lang') || 'ja';
+
+    function applyLang() {
+      const s = STRINGS[lang];
+      document.documentElement.lang = lang;
+      document.title = s.title;
+      document.getElementById('heroTitle').textContent = s.title;
+      document.getElementById('heroSub').textContent = s.hero;
+      document.getElementById('ctrlTitle').textContent = s.ctrlTitle;
+      document.getElementById('ctrlDesc').innerHTML = s.ctrlDesc;
+      document.getElementById('ctrlTag').textContent = s.ctrlTag;
+      document.getElementById('ovrlTitle').textContent = s.overlayTitle;
+      document.getElementById('ovrlDesc').innerHTML = s.overlayDesc;
+      document.getElementById('ovrlTag').textContent = s.overlayTag;
+      document.getElementById('setupTitle').textContent = s.setup;
+      document.getElementById('s1Title').textContent = s.s1Title;
+      document.getElementById('s1Body').innerHTML = s.s1Body;
+      document.getElementById('s2Title').textContent = s.s2Title;
+      document.getElementById('s2Body').innerHTML = s.s2Body;
+      document.getElementById('s3Title').textContent = s.s3Title;
+      document.getElementById('s3Body').innerHTML = s.s3Body;
+      document.getElementById('s4Title').textContent = s.s4Title;
+      document.getElementById('s4Body').innerHTML = s.s4Body;
+      document.getElementById('btn-ja').classList.toggle('active', lang === 'ja');
+      document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+
+      document.getElementById('disclaimerText').textContent = s.disclaimer;
+    }
+
+    function setLang(newLang) {
+      lang = newLang;
+      localStorage.setItem('phasmo_lang', lang);
+      applyLang();
+    }
+
+    applyLang();
+  </script>
+
+  <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js" data-id="mumeiapps" data-description="Support me on Buy me a coffee!" data-message="アプリを使用していただきありがとうございます！このアプリを気に入っていただけたら、支援していただけると励みになります！Thank you for using our app!
+If you like this app, your support would be greatly appreciated!" data-color="#5F7FFF" data-position="Right" data-x_margin="18" data-y_margin="18"></script>
+</body>
+</html>
